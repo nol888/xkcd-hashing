@@ -93,6 +93,7 @@ int main() {
 	srand(time(NULL));
 	signal(SIGINT, quit);
 	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 	selftest();
 
 	// skein things
@@ -139,7 +140,7 @@ int main() {
 
 			double seconds = (timenow.tv_sec - lastcomplete.tv_sec) + 1.0e-6 * (timenow.tv_usec - lastcomplete.tv_usec);
 
-			printf("%.1f hash/s\r", HASH_BEFORE_REPORT / seconds);
+			fprintf(stderr, "%.1f hash/s\r", HASH_BEFORE_REPORT / seconds);
 
 			gettimeofday( &lastcomplete, NULL );
 			i = 0;
