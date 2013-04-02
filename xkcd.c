@@ -6,8 +6,11 @@
 #include <sys/time.h>
 #include <time.h>
 #include <signal.h>
+
+#ifdef USE_OPENMP
 #include <omp.h>
 #include <limits.h>
+#endif
 
 #define INC_BEFORE_NEW 1024
 #define HASH_BEFORE_REPORT 1000000
@@ -101,7 +104,7 @@ int main() {
 	// skein things
 	Skein1024_Ctxt_t ctx;
 	uint8_t out[128];
-	
+
 	// randogen things
 	char str[101];
 	int strLen = 0;
@@ -113,23 +116,25 @@ int main() {
 	struct timeval lastcomplete;
 	gettimeofday( &lastcomplete, NULL );
 
-	int i = 0;
-
+#ifdef USE_OPENMP
 #pragma omp parallel for firstprivate(ctx, out, str, strLen, lastcomplete) shared(best) schedule(static, 65536)
-	for (int i = 0; i < INT_MAX; i++) {
-        // Only refresh the input with a new random value every so often
-        if (i % INC_BEFORE_NEW == 0) {
-            strLen = mixit(str);
-        } else {
-            inc_input(str, strLen);
-        }
-		
+	for (int i = 0; i < INT_MAX; i++)
+#else
+	for (int i = 0; ; i++)
+#endif
+	{
+		// Only refresh the input with a new random value every so often
+		if (i % INC_BEFORE_NEW == 0) {
+			strLen = mixit(str);
+		} else {
+			inc_input(str, strLen);
+		}
 
 		// this is slow :(
 		Skein1024_Init(&ctx, 1024);
 		Skein1024_Update(&ctx, (uint8_t*) str, strLen);
 		Skein1024_Final(&ctx, out);
-		
+
 		int diff = bitdiff(out);
 		if (diff < best) {
 			best = diff;
@@ -142,7 +147,11 @@ int main() {
 
 			double seconds = (timenow.tv_sec - lastcomplete.tv_sec) + 1.0e-6 * (timenow.tv_usec - lastcomplete.tv_usec);
 
-			fprintf(stderr, "%.1f hash/s\r", HASH_BEFORE_REPORT / seconds * omp_get_num_threads());
+#ifdef USE_OPENMP
+			fprintf(stderr, "%.2f khash/s  \r", HASH_BEFORE_REPORT / seconds / 1000 * omp_get_num_threads());
+#else
+			fprintf(stderr, "%.2f khash/s  \r", HASH_BEFORE_REPORT / seconds / 1000);
+#endif
 
 			gettimeofday( &lastcomplete, NULL );
 			i = 0;
