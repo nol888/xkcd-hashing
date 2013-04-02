@@ -106,12 +106,10 @@ int main() {
 
 	// bookkeeping
 	int best = 1024;
-	
-#ifdef SHOW_STATUS
+
 	// timekeeping for status outputs
 	struct timeval lastcomplete;
 	gettimeofday( &lastcomplete, NULL );
-#endif
 
 	for (int i = 0; ; i++) {
         // Only refresh the input with a new random value every so often
@@ -133,7 +131,6 @@ int main() {
 			printf("%u %s\n", best, str);
 		}
 
-#ifdef SHOW_STATUS
 		if (i >= HASH_BEFORE_REPORT) {
 			struct timeval timenow;
 			gettimeofday( &timenow, NULL );
@@ -145,7 +142,6 @@ int main() {
 			gettimeofday( &lastcomplete, NULL );
 			i = 0;
 		}
-#endif
 	}
 
 	return 0;

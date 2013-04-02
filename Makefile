@@ -15,8 +15,5 @@ profile : CFLAGS=-O3 -march=native -std=c99 -ggdb -pg
 profile : LDFLAGS=-pg
 profile : clean all
 
-verbose : CFLAGS=-O3 -march=native -std=c99 -ggdb -DSHOW_STATUS
-verbose : clean all
-
 clean:
 	-rm xkcd *.o skein/*.o

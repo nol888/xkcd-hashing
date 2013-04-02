@@ -7,9 +7,9 @@ try:
 except ImportError:
     import httplib
 try:
-    from urllib import urlencode
+    from urllib import urlencode, quote
 except ImportError:
-    from urllib.parse import urlencode
+    from urllib.parse import urlencode, quote
 
 FAST_SKEIN = './xkcd'
 server = 'almamater.xkcd.com'
@@ -26,7 +26,7 @@ if __name__ == '__main__':
         print(str(num) + ' ' + text)
         try:
             h = httplib.HTTPConnection(server)
-            h.request('POST', '/', urlencode({'edu': node_name, 'hashable': text}), {})
+            h.request('POST', '/?edu=' + quote(node_name), urlencode({'hashable': text}), {}) 
             h.getresponse().read()
             h.close()
         except Exception as e:
