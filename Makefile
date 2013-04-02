@@ -13,10 +13,10 @@ all: skein/skein.o skein/skein_block.o xkcd.o
 
 profile : CFLAGS=-O3 -march=native -std=c99 -ggdb -pg
 profile : LDFLAGS=-pg
-profile : all
+profile : clean all
 
 verbose : CFLAGS=-O3 -march=native -std=c99 -ggdb -DSHOW_STATUS
-verbose : all
+verbose : clean all
 
 clean:
-	rm xkcd *.o skein/*.o
+	-rm xkcd *.o skein/*.o
