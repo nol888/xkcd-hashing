@@ -1,4 +1,4 @@
-#include "skein.h"
+#include "skein/skein.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>

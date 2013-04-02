@@ -8,7 +8,7 @@ LDFLAGS=
 %.o: %.s
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-all: skein.o skein_block.o xkcd.o
+all: skein/skein.o skein/skein_block.o xkcd.o
 	$(LD) $(LDFLAGS) -o xkcd $^
 
 profile : CFLAGS=-O3 -mpopcnt -std=c99 -ggdb -pg
@@ -19,4 +19,4 @@ verbose : CFLAGS=-O3 -mpopcnt -std=c99 -ggdb -DSHOW_STATUS
 verbose : all
 
 clean:
-	rm xkcd *.o
+	rm xkcd *.o skein/*.o
