@@ -6,14 +6,26 @@
 #include <sys/time.h>
 #include <time.h>
 #include <signal.h>
+#include <pthread.h>
 
-#ifdef USE_OPENMP
-#include <omp.h>
-#include <limits.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <unistd.h>
 #endif
 
 #define INC_BEFORE_NEW 1024
-#define HASH_BEFORE_REPORT 1000000
+#define HASH_BEFORE_REPORT 100000
+#define SECONDS_BEFORE_UPDATE 2
+
+struct thr_info {
+	double hashrate;
+	pthread_t pth;
+};
+
+pthread_mutex_t best_mutex = PTHREAD_MUTEX_INITIALIZER; 
+volatile int best = 1024;
 
 const uint64_t oracle[16] = {
 	0x8082A05F5FA94D5B, 0xC818F444DF7998FC,
@@ -93,13 +105,33 @@ void selftest() {
 	}
 }
 
-int main() {
-	// setup
-	srand(time(NULL));
-	signal(SIGINT, quit);
-	setbuf(stdout, NULL);
-	setbuf(stderr, NULL);
-	selftest();
+// cross-platform is diques (thx stackoverflow)
+int get_num_cpus() {
+	int cpus = -1;
+#ifdef _WIN32
+	#ifndef _SC_NPROCESSORS_ONLN
+		SYSTEM_INFO info;
+		GetSystemInfo(&info);
+		#define sysconf(a) info.dwNumberOfProcessors
+		#define _SC_NPROCESSORS_ONLN
+	#endif
+#endif
+#ifdef _SC_NPROCESSORS_ONLN
+	cpus = sysconf(_SC_NPROCESSORS_ONLN);
+	if (cpus < 1) {
+		fprintf(stderr, "Could not auto-detect CPU count! Only one thread will be used.");
+		cpus = 1;
+	}
+	
+	return cpus;
+#else
+	fprintf(stderr, "This binary was not compiled with CPU auto-detection. Only one thread will be used.");
+	return 1;
+#endif
+}
+
+void *hash_thread(void *infostruct) {
+	struct thr_info *tinfo = infostruct;
 
 	// skein things
 	Skein1024_Ctxt_t ctx;
@@ -109,20 +141,11 @@ int main() {
 	char str[101];
 	int strLen = 0;
 
-	// bookkeeping
-	int best = 1024;
-
 	// timekeeping for status outputs
 	struct timeval lastcomplete;
 	gettimeofday( &lastcomplete, NULL );
 
-#ifdef USE_OPENMP
-#pragma omp parallel for firstprivate(ctx, out, str, strLen, lastcomplete) shared(best) schedule(static, 65536)
-	for (int i = 0; i < INT_MAX; i++)
-#else
-	for (int i = 0; ; i++)
-#endif
-	{
+	for (int i = 0; ; i++) {
 		// Only refresh the input with a new random value every so often
 		if (i % INC_BEFORE_NEW == 0) {
 			strLen = mixit(str);
@@ -137,8 +160,15 @@ int main() {
 
 		int diff = bitdiff(out);
 		if (diff < best) {
-			best = diff;
-			printf("%u %s\n", best, str);
+			pthread_mutex_lock(&best_mutex);
+
+			// threading is diques.
+			if (diff < best) {
+				best = diff;
+				printf("%u %s\n", best, str);	
+			}
+			
+			pthread_mutex_unlock(&best_mutex);
 		}
 
 		if (i >= HASH_BEFORE_REPORT) {
@@ -146,16 +176,53 @@ int main() {
 			gettimeofday( &timenow, NULL );
 
 			double seconds = (timenow.tv_sec - lastcomplete.tv_sec) + 1.0e-6 * (timenow.tv_usec - lastcomplete.tv_usec);
-
-#ifdef USE_OPENMP
-			fprintf(stderr, "%.2f khash/s  \r", HASH_BEFORE_REPORT / seconds / 1000 * omp_get_num_threads());
-#else
-			fprintf(stderr, "%.2f khash/s  \r", HASH_BEFORE_REPORT / seconds / 1000);
-#endif
+			tinfo->hashrate = HASH_BEFORE_REPORT / seconds / 1000;
 
 			gettimeofday( &lastcomplete, NULL );
 			i = 0;
 		}
+	}
+}
+
+int main(int argc, char *argv[]) {
+	// setup
+	srand(time(NULL));
+	signal(SIGINT, quit);
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+	selftest();
+
+	// get number of threads
+	int num_threads = get_num_cpus();
+	if (argc > 1)
+		num_threads = atoi(argv[1]);
+	if (num_threads < 1)
+		num_threads = 1;
+
+	struct thr_info *td = malloc(sizeof(struct thr_info) * num_threads);
+
+	fprintf(stderr, "hashing with %u threads.\n", num_threads);
+
+	// start threads
+	for (int i = 0; i < num_threads; i++) {
+		td[i].hashrate = 0;
+
+		if (pthread_create(&td[i].pth, NULL, hash_thread, &td[i])) {
+			fprintf(stderr, "failed to create thread #%u", i);
+			return -1;
+		}
+
+		sleep(1);
+	}
+
+	// measure hashrate
+	for (double hashrate = 0; ; hashrate = 0) {
+		sleep(SECONDS_BEFORE_UPDATE);
+
+		for (int i = 0; i < num_threads; i++)
+			hashrate += td[i].hashrate;
+
+		fprintf(stderr, "%.2f khash/s  \r", hashrate);
 	}
 
 	return 0;
