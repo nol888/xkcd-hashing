@@ -7,6 +7,9 @@
 #include <time.h>
 #include <signal.h>
 
+#define INC_BEFORE_NEW 1024
+#define HASH_BEFORE_REPORT 1000000
+
 const uint64_t oracle[16] = {
 	0x8082A05F5FA94D5B, 0xC818F444DF7998FC,
 	0x7D75B724A42BF1F9, 0x4F4C0DAEFBBD2BE0,
@@ -41,6 +44,26 @@ inline int mixit(char *tgt) {
 	tgt[i] = 0;
 
 	return len;
+}
+
+// thx rfw
+void inc_input(char *input, int length) {
+    int i = length/2;
+    do {
+        switch (++input[i]) {
+            case ('z' + 1):
+                input[i] = 'A';
+                break;
+            case ('Z' + 1):
+                input[i] = '0';
+                break;
+            case ('9' + 1):
+                input[i] = 'a';
+                break;
+            default:
+                break;
+        }
+    } while (input[i--] == 'a' && i > 0);
 }
 
 // for profiling
@@ -87,13 +110,16 @@ int main() {
 	// timekeeping for status outputs
 	struct timeval lastcomplete;
 	gettimeofday( &lastcomplete, NULL );
-
-	for (int i = 0; ; i++)
-#else
-	for (;;)
 #endif
-	{
-		strLen = mixit(str);
+
+	for (int i = 0; ; i++) {
+        // Only refresh the input with a new random value every so often
+        if (i % INC_BEFORE_NEW == 0) {
+            strLen = mixit(str);
+        } else {
+            inc_input(str, strLen);
+        }
+		
 
 		// this is slow :(
 		Skein1024_Init(&ctx, 1024);
@@ -107,13 +133,13 @@ int main() {
 		}
 
 #ifdef SHOW_STATUS
-		if (i >= 500000) {
+		if (i >= HASH_BEFORE_REPORT) {
 			struct timeval timenow;
 			gettimeofday( &timenow, NULL );
 
 			double seconds = (timenow.tv_sec - lastcomplete.tv_sec) + 1.0e-6 * (timenow.tv_usec - lastcomplete.tv_usec);
 
-			printf("%.1f hash/s\r", 500000 / seconds);
+			printf("%.1f hash/s\r", HASH_BEFORE_REPORT / seconds);
 
 			gettimeofday( &lastcomplete, NULL );
 			i = 0;
