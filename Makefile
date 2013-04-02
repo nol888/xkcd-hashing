@@ -1,7 +1,7 @@
 CC=gcc
 LD=gcc
-CFLAGS=-O3 -march=native -funroll-loops -ftree-vectorize -std=c99 -ggdb
-LDFLAGS=
+CFLAGS=-O3 -march=native -funroll-loops -ftree-vectorize -std=c99 -ggdb -fopenmp
+LDFLAGS=-fopenmp
 OUTFILE=xkcd
 
 %.o: %.c

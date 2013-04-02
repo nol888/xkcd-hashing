@@ -6,6 +6,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <signal.h>
+#include <omp.h>
+#include <limits.h>
 
 #define INC_BEFORE_NEW 1024
 #define HASH_BEFORE_REPORT 1000000
@@ -111,7 +113,10 @@ int main() {
 	struct timeval lastcomplete;
 	gettimeofday( &lastcomplete, NULL );
 
-	for (int i = 0; ; i++) {
+	int i = 0;
+
+#pragma omp parallel for firstprivate(ctx, out, str, strLen, lastcomplete) shared(best) schedule(static, 65536)
+	for (int i = 0; i < INT_MAX; i++) {
         // Only refresh the input with a new random value every so often
         if (i % INC_BEFORE_NEW == 0) {
             strLen = mixit(str);
@@ -137,7 +142,7 @@ int main() {
 
 			double seconds = (timenow.tv_sec - lastcomplete.tv_sec) + 1.0e-6 * (timenow.tv_usec - lastcomplete.tv_usec);
 
-			fprintf(stderr, "%.1f hash/s\r", HASH_BEFORE_REPORT / seconds);
+			fprintf(stderr, "%.1f hash/s\r", HASH_BEFORE_REPORT / seconds * omp_get_num_threads());
 
 			gettimeofday( &lastcomplete, NULL );
 			i = 0;
