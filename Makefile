@@ -12,7 +12,7 @@ OUTFILE=xkcd
 all : xkcd
 
 xkcd: skein/skein.o skein/skein_block.o xkcd.o
-	$(LD) $(LDFLAGS) -o $(OUTFILE) $^
+	$(LD) -o $(OUTFILE) $^ $(LDFLAGS)
 
 profile : CFLAGS=-O3 -march=native -std=c99 -ggdb -pg
 profile : LDFLAGS=-pg
@@ -21,7 +21,8 @@ profile : clean all
 win32 : CC=x86_64-w64-mingw32-gcc
 win32 : LD=x86_64-w64-mingw32-gcc
 win32 : OUTFILE=xkcd.exe
-win32 : CFLAGS=-O3 -march=corei7 -funroll-loops -ftree-vectorize -std=c99 -pthread
+win32 : CFLAGS=-O3 -march=corei7 -funroll-loops -ftree-vectorize -std=c99 -Iw32pthread -DPTW32_STATIC_LIB
+win32 : LDFLAGS=-Lw32pthread -lpthreadGC2
 win32 : clean all
 
 clean:
